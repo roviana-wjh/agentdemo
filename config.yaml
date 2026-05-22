@@ -1,0 +1,87 @@
+# https://goframe.org/docs/web/server-config-file-template
+# server:
+#   address: ":8000"
+#   openapiPath: "/api.json"
+#   swaggerPath: "/swagger"
+
+# # https://goframe.org/docs/core/glog-config
+# logger:
+#   level: "all"
+#   stdout: true
+
+# ds_think_chat_model:
+#   api_key: "f6c0af0e-d859-4f46-b20f-cebfedd69a02"
+#   base_url: "https://ark.cn-beijing.volces.com/api/v3"
+#   model: "deepseek-v3-2-251201"
+
+# ds_quick_chat_model:
+#   api_key: "f6c0af0e-d859-4f46-b20f-cebfedd69a02"
+#   base_url: "https://ark.cn-beijing.volces.com/api/v3"
+#   model: "deepseek-v3-2-251201"
+
+# doubao_embedding_model:
+#   api_key: "sk-915311a954d64a29aded0d004d4db953"
+#   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+#   model: "text-embedding-v4"
+#   dimensions: 1024
+
+# milvus:
+#   address: "localhost:19530"
+#   username: ""
+#   password: ""
+#   collection: "rag_demo"
+#   top_k: 5
+
+# file_dir: "C:/Users/lenovo/Desktop/SuperBizAgent-release-2026-01-09/internal/ai/cmd/knowledge_cmd/docs"
+
+# cls_mcp_url: "https://mcp-api.tencent-cloud.com/sse/2c064ebcea242450"
+# https://goframe.org/docs/web/server-config-file-template
+server:
+  address: ":8080"
+  openapiPath: "/api.json"
+  swaggerPath: "/swagger"
+
+# https://goframe.org/docs/core/glog-config
+logger:
+  level: "all"
+  stdout: true
+
+ds_think_chat_model:
+  api_key: "f6c0af0e-d859-4f46-b20f-cebfedd69a02"
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  model: "deepseek-v3-2-251201"
+
+ds_quick_chat_model:
+  api_key: "f6c0af0e-d859-4f46-b20f-cebfedd69a02"
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  model: "deepseek-v3-2-251201"
+
+doubao_embedding_model:
+  api_key: "sk-915311a954d64a29aded0d004d4db953"
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  model: "text-embedding-v4"
+
+milvus:
+  address: "localhost:19530"
+  username: ""
+  password: ""
+  collection: "rag_demo"
+  top_k: 5
+
+mysql:
+  host: "localhost"
+  port: "3306"
+  username: "root"
+  password: "lwnznxf5555"
+  database: "test2"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: "0"
+
+file_dir: "C:/Users/lenovo/Desktop/SuperBizAgent-release-2026-01-09/internal/ai/cmd/knowledge_cmd/docs"
+
+cls_mcp_url: "https://mcp-api.tencent-cloud.com/sse/2c064ebcea242450"
+
+
