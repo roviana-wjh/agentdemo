@@ -1,0 +1,201 @@
+package collaborative_writing
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
+	"go-agent/tool/blog_tools"
+
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/schema"
+)
+
+// ArticlePerformance 文章表现数据
+type ArticlePerformance struct {
+	ArticleID     uint      `json:"article_id"`
+	Title         string    `json:"title"`
+	Views         int       `json:"views"`
+	Likes         int       `json:"likes"`
+	Comments      int       `json:"comments"`
+	ShareCount    int       `json:"share_count"`
+	AvgReadTime   int       `json:"avg_read_time"` // 秒
+	PublishTime   time.Time `json:"publish_time"`
+	PerformanceScore float64 `json:"performance_score"` // 综合评分
+}
+
+// MonitorInsight 监控洞察
+type MonitorInsight struct {
+	Summary           string               `json:"summary"`
+	BestPerforming    []ArticlePerformance `json:"best_performing"`
+	PoorPerforming    []ArticlePerformance `json:"poor_performing"`
+	Recommendations   []string             `json:"recommendations"`
+	TrendingTopics    []string             `json:"trending_topics"`
+	OptimizationTips  []string             `json:"optimization_tips"`
+}
+
+// MonitorAgent 监控Agent
+type MonitorAgent struct {
+	model       model.BaseChatModel
+	detailTool  tool.InvokableTool
+}
+
+// NewMonitorAgent 创建监控Agent
+func NewMonitorAgent(chatModel model.BaseChatModel) (*MonitorAgent, error) {
+	// 获取博客工具
+	tools, err := blog_tools.GetTools()
+	if err != nil {
+		return nil, fmt.Errorf("get blog tools: %w", err)
+	}
+
+	var detailTool tool.InvokableTool
+	for _, t := range tools {
+		info := t.Info()
+		if info.Name == "get_article_detail" {
+			detailTool = t.(tool.InvokableTool)
+			break
+		}
+	}
+
+	return &MonitorAgent{
+		model:      chatModel,
+		detailTool: detailTool,
+	}, nil
+}
+
+// MonitorArticle 监控文章表现
+func (a *MonitorAgent) MonitorArticle(
+	ctx context.Context,
+	articleID uint,
+) (ArticlePerformance, error) {
+	log.Printf("[Monitor] 监控文章 ID=%d", articleID)
+
+	// 获取文章详情
+	input := blog_tools.GetArticleDetailInput{ArticleID: articleID}
+	inputJSON, _ := json.Marshal(input)
+
+	resultStr, err := a.detailTool.InvokableRun(ctx, string(inputJSON))
+	if err != nil {
+		return ArticlePerformance{}, fmt.Errorf("get article detail: %w", err)
+	}
+
+	// 简化处理：从返回的字符串中提取信息
+	// 实际应该解析完整的文章数据
+	performance := ArticlePerformance{
+		ArticleID:        articleID,
+		Views:            0, // 需要从实际数据中提取
+		Likes:            0,
+		Comments:         0,
+		ShareCount:       0,
+		AvgReadTime:      0,
+		PublishTime:      time.Now(),
+		PerformanceScore: 0,
+	}
+
+	log.Printf("[Monitor] 文章表现: 浏览%d, 点赞%d, 评论%d",
+		performance.Views, performance.Likes, performance.Comments)
+
+	return performance, nil
+}
+
+// AnalyzePerformance 分析多篇文章表现，生成洞察
+func (a *MonitorAgent) AnalyzePerformance(
+	ctx context.Context,
+	performances []ArticlePerformance,
+) (MonitorInsight, error) {
+	log.Printf("[Monitor] 分析%d篇文章的表现", len(performances))
+
+	if len(performances) == 0 {
+		return MonitorInsight{
+			Summary: "暂无数据",
+		}, nil
+	}
+
+	prompt := a.buildAnalysisPrompt(performances)
+
+	response, err := a.model.Generate(ctx, []*schema.Message{
+		schema.SystemMessage("你是数据分析专家，擅长从文章表现数据中提取洞察和建议。只输出JSON格式。"),
+		schema.UserMessage(prompt),
+	})
+	if err != nil {
+		return MonitorInsight{}, fmt.Errorf("analyze performance: %w", err)
+	}
+
+	// 解析JSON
+	var insight MonitorInsight
+	content := extractJSONFromResponse(response.Content)
+	if err := json.Unmarshal([]byte(content), &insight); err != nil {
+		return MonitorInsight{}, fmt.Errorf("parse insight JSON: %w", err)
+	}
+
+	// 填充表现最好/最差的文章
+	insight.BestPerforming = a.findTopPerformers(performances, 3)
+	insight.PoorPerforming = a.findPoorPerformers(performances, 3)
+
+	log.Printf("[Monitor] 分析完成，生成%d条建议", len(insight.Recommendations))
+
+	return insight, nil
+}
+
+// buildAnalysisPrompt 构建分析Prompt
+func (a *MonitorAgent) buildAnalysisPrompt(performances []ArticlePerformance) string {
+	dataList := ""
+	for _, perf := range performances {
+		dataList += fmt.Sprintf(`
+- 《%s》
+  浏览: %d | 点赞: %d | 评论: %d | 分享: %d
+  评分: %.1f
+`, perf.Title, perf.Views, perf.Likes, perf.Comments, perf.ShareCount, perf.PerformanceScore)
+	}
+
+	return fmt.Sprintf(`分析以下文章的表现数据，提供洞察和建议。
+
+【文章表现数据】
+%s
+
+【分析要求】
+1. 总结整体表现趋势
+2. 识别热门话题
+3. 提供优化建议
+4. 预测未来方向
+
+输出JSON格式：
+{
+  "summary": "整体表现总结（100字内）",
+  "trending_topics": ["热门话题1", "热门话题2"],
+  "recommendations": [
+    "建议1：针对选题方向",
+    "建议2：针对内容质量",
+    "建议3：针对推广策略"
+  ],
+  "optimization_tips": [
+    "优化技巧1",
+    "优化技巧2"
+  ]
+}
+
+只输出JSON，不要其他内容。`, dataList)
+}
+
+// findTopPerformers 找出表现最好的文章
+func (a *MonitorAgent) findTopPerformers(performances []ArticlePerformance, count int) []ArticlePerformance {
+	// 简化实现：按评分排序
+	if len(performances) <= count {
+		return performances
+	}
+	// TODO: 实际排序逻辑
+	return performances[:count]
+}
+
+// findPoorPerformers 找出表现较差的文章
+func (a *MonitorAgent) findPoorPerformers(performances []ArticlePerformance, count int) []ArticlePerformance {
+	// 简化实现
+	if len(performances) <= count {
+		return performances
+	}
+	// TODO: 实际排序逻辑
+	return performances[len(performances)-count:]
+}

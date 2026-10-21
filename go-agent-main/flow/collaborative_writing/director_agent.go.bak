@@ -1,0 +1,198 @@
+package collaborative_writing
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"sort"
+
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
+)
+
+// TopicSelection 主题选择结果
+type TopicSelection struct {
+	SelectedTopics []TopicSuggestion `json:"selected_topics"`
+	Reason         string            `json:"reason"`
+	Priority       []int             `json:"priority"` // 优先级顺序（索引）
+}
+
+// DirectorAgent 运营总监Agent - 负责决策
+type DirectorAgent struct {
+	model model.BaseChatModel
+}
+
+// NewDirectorAgent 创建运营总监Agent
+func NewDirectorAgent(chatModel model.BaseChatModel) *DirectorAgent {
+	return &DirectorAgent{
+		model: chatModel,
+	}
+}
+
+// SelectTopics 从建议中选择最佳主题
+func (a *DirectorAgent) SelectTopics(
+	ctx context.Context,
+	suggestions []TopicSuggestion,
+	selectCount int,
+	strategy string, // "balanced", "trending", "quality"
+) (TopicSelection, error) {
+	log.Printf("[Director] 从%d个建议中选择%d个主题（策略: %s）",
+		len(suggestions), selectCount, strategy)
+
+	// 如果建议数不足，全部选择
+	if len(suggestions) <= selectCount {
+		log.Printf("[Director] 建议数不足，全部选择")
+		return TopicSelection{
+			SelectedTopics: suggestions,
+			Reason:         "所有建议主题都很优质，全部采纳",
+			Priority:       makeSequence(len(suggestions)),
+		}, nil
+	}
+
+	// 策略1: 基于规则的快速筛选
+	if strategy == "trending" {
+		return a.selectByTrending(suggestions, selectCount), nil
+	}
+
+	// 策略2: LLM深度评估
+	return a.selectByLLM(ctx, suggestions, selectCount, strategy)
+}
+
+// selectByTrending 按热度选择
+func (a *DirectorAgent) selectByTrending(suggestions []TopicSuggestion, count int) TopicSelection {
+	// 按热度排序
+	sorted := make([]TopicSuggestion, len(suggestions))
+	copy(sorted, suggestions)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Hotness > sorted[j].Hotness
+	})
+
+	selected := sorted[:count]
+	log.Printf("[Director] 按热度选择: %v", extractTopics(selected))
+
+	return TopicSelection{
+		SelectedTopics: selected,
+		Reason:         fmt.Sprintf("选择了热度最高的%d个主题", count),
+		Priority:       makeSequence(count),
+	}
+}
+
+// selectByLLM 通过LLM深度评估选择
+func (a *DirectorAgent) selectByLLM(
+	ctx context.Context,
+	suggestions []TopicSuggestion,
+	count int,
+	strategy string,
+) (TopicSelection, error) {
+	prompt := a.buildSelectionPrompt(suggestions, count, strategy)
+
+	response, err := a.model.Generate(ctx, []*schema.Message{
+		schema.SystemMessage("你是资深技术博客运营总监，擅长评估主题价值和商业决策。只输出JSON格式。"),
+		schema.UserMessage(prompt),
+	})
+	if err != nil {
+		return TopicSelection{}, fmt.Errorf("LLM selection: %w", err)
+	}
+
+	// 解析JSON
+	var result struct {
+		SelectedIndices []int  `json:"selected_indices"`
+		Reason          string `json:"reason"`
+	}
+
+	content := extractJSONFromResponse(response.Content)
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		return TopicSelection{}, fmt.Errorf("parse selection JSON: %w", err)
+	}
+
+	// 提取选中的主题
+	selected := make([]TopicSuggestion, 0, len(result.SelectedIndices))
+	for _, idx := range result.SelectedIndices {
+		if idx >= 0 && idx < len(suggestions) {
+			selected = append(selected, suggestions[idx])
+		}
+	}
+
+	log.Printf("[Director] LLM选择: %v", extractTopics(selected))
+	log.Printf("[Director] 理由: %s", result.Reason)
+
+	return TopicSelection{
+		SelectedTopics: selected,
+		Reason:         result.Reason,
+		Priority:       result.SelectedIndices,
+	}, nil
+}
+
+// buildSelectionPrompt 构建选择Prompt
+func (a *DirectorAgent) buildSelectionPrompt(
+	suggestions []TopicSuggestion,
+	count int,
+	strategy string,
+) string {
+	strategyDesc := map[string]string{
+		"balanced": "平衡策略：兼顾热度、质量和多样性",
+		"trending": "热点策略：优先选择当前最热门的话题",
+		"quality":  "质量策略：优先选择最有深度和价值的话题",
+	}[strategy]
+
+	if strategyDesc == "" {
+		strategyDesc = "平衡策略：兼顾各方面因素"
+	}
+
+	// 构建主题列表
+	topicsList := ""
+	for i, topic := range suggestions {
+		topicsList += fmt.Sprintf(`
+[%d] %s
+    理由：%s
+    难度：%s | 热度：%.1f | 字数：%d
+    关键词：%v
+`, i, topic.Topic, topic.Reason, topic.Difficulty, topic.Hotness, topic.TargetWords, topic.Keywords)
+	}
+
+	return fmt.Sprintf(`作为运营总监，从以下%d个主题建议中选择%d个最佳主题。
+
+【候选主题】
+%s
+
+【选择策略】
+%s
+
+【评估维度】
+1. 商业价值：能否吸引读者和流量
+2. 内容质量：是否有足够深度和独特性
+3. 受众匹配：是否符合目标读者需求
+4. 竞争态势：是否已被过度覆盖
+5. 多样性：选择的主题是否覆盖不同领域
+
+【输出要求】
+选择%d个主题，给出选择理由。
+
+输出JSON格式：
+{
+  "selected_indices": [0, 2, 4],
+  "reason": "选择理由（200字内，说明为什么选这几个主题）"
+}
+
+只输出JSON，不要其他内容。`, len(suggestions), count, topicsList, strategyDesc, count)
+}
+
+// extractTopics 提取主题名称列表
+func extractTopics(topics []TopicSuggestion) []string {
+	names := make([]string, len(topics))
+	for i, t := range topics {
+		names[i] = t.Topic
+	}
+	return names
+}
+
+// makeSequence 生成序列 [0, 1, 2, ...]
+func makeSequence(n int) []int {
+	seq := make([]int, n)
+	for i := 0; i < n; i++ {
+		seq[i] = i
+	}
+	return seq
+}

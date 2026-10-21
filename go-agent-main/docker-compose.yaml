@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  redis:
+    container_name: go-agent-redis
+    image: docker.m.daocloud.io/library/redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  mysql:
+    container_name: go-agent-mysql
+    image: docker.m.daocloud.io/library/mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: lwnznxf5555
+      MYSQL_DATABASE: test2
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  etcd:
+    container_name: milvus-etcd
+    image: quay.io/coreos/etcd:v3.5.0
+    environment:
+      - ETCD_AUTO_COMPACTION_RETENTION=1
+    command: etcd -advertise-client-urls http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+
+  minio:
+    container_name: milvus-minio
+    image: minio/minio:latest
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9001:9001"
+      - "9000:9000"
+
+  # Milvus语义检索
+  standalone:
+    container_name: milvus-standalone
+    image: milvusdb/milvus:v2.4.8
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    ports:
+      - "19530:19530"
+    depends_on:
+      - etcd
+      - minio
+
+  # Milvus可视化
+  attu:
+    container_name: attu
+    image: zilliz/attu:latest
+    ports:
+      - "8000:3000"
+    depends_on:
+      - standalone
+
+  # ES关键字检索
+  es8:
+    container_name: es8
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+
+volumes:
+  redis_data:
+  mysql_data:

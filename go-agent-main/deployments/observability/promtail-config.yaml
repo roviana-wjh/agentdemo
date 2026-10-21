@@ -1,0 +1,53 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: go-agent
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: go-agent
+          __path__: /app/logs/*.log
+
+    # Parse JSON logs
+    pipeline_stages:
+      - json:
+          expressions:
+            timestamp: timestamp
+            event_type: event_type
+            status: status
+            trace_id: trace_id
+            skill_name: skill_name
+            query: query
+            tool_calls: tool_calls
+            duration: duration_ms
+            error: error
+            metadata: metadata
+
+      # Set timestamp from JSON field
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+
+      # Extract labels
+      - labels:
+          event_type:
+          status:
+          skill_name:
+
+      # Extract metrics
+      - metrics:
+          duration_ms:
+            type: Histogram
+            description: "Skill extraction duration"
+            source: duration
+            config:
+              buckets: [100, 500, 1000, 2000, 5000]

@@ -1,0 +1,53 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/go-agent
+/bin/
+/dist/
+
+# Go test & coverage
+*.test
+*.out
+coverage.html
+coverage.out
+
+# Dependency vendoring (if used)
+/vendor/
+
+# Local environment & secrets
+.env
+.env.*
+!.env-example
+!.env.example
+
+# Local runtime config (contains API keys; use .env-example + config.yaml.example)
+config.yaml
+config.local.yaml
+config.*.local.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & runtime data
+*.log
+/logs/
+/data/
+
+# Uploaded / knowledge documents (paths often set in config.yaml file_dir)
+/docs/
+/uploads/
+
+# Docker local volumes (if mounted beside compose file)
+volumes/

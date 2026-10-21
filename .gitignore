@@ -1,0 +1,17 @@
+.env
+*.exe
+*.test.exe
+.gocache*/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.log
+*.tmp
+临时文件/

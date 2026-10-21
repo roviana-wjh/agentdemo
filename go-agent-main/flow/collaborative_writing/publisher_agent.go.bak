@@ -1,0 +1,104 @@
+package collaborative_writing
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+
+	"go-agent/tool/blog_tools"
+
+	"github.com/cloudwego/eino/components/tool"
+)
+
+// PublishResult 发布结果
+type PublishResult struct {
+	Success   bool   `json:"success"`
+	ArticleID uint   `json:"article_id"`
+	URL       string `json:"url"`
+	Error     string `json:"error,omitempty"`
+}
+
+// PublisherAgent 发布Agent
+type PublisherAgent struct {
+	createDraftTool tool.InvokableTool
+}
+
+// NewPublisherAgent 创建发布Agent
+func NewPublisherAgent() (*PublisherAgent, error) {
+	// 获取博客工具
+	tools, err := blog_tools.NewDraftToolsFromConfig()
+	if err != nil {
+		return nil, fmt.Errorf("get blog tools: %w", err)
+	}
+
+	var createDraftTool tool.InvokableTool
+	for _, t := range tools {
+		info := t.Info()
+		if info.Name == "create_article_draft" {
+			createDraftTool = t.(tool.InvokableTool)
+			break
+		}
+	}
+
+	if createDraftTool == nil {
+		return nil, fmt.Errorf("create_article_draft tool not found")
+	}
+
+	return &PublisherAgent{
+		createDraftTool: createDraftTool,
+	}, nil
+}
+
+// Publish 发布文章
+func (a *PublisherAgent) Publish(
+	ctx context.Context,
+	authorID uint,
+	title string,
+	content string,
+	seo SEOOptimization,
+	autoPublish bool, // true=直接发布，false=保存为草稿
+) (PublishResult, error) {
+	log.Printf("[Publisher] 开始发布文章: %s", title)
+
+	// 构建发布参数
+	input := blog_tools.CreateArticleDraftInput{
+		AuthorID:  authorID,
+		Title:     seo.OptimizedTitle,
+		Content:   content,
+		Desc:      seo.MetaDescription,
+		Tags:      seo.Tags,
+		Confirmed: autoPublish,
+	}
+
+	inputJSON, err := json.Marshal(input)
+	if err != nil {
+		return PublishResult{Success: false, Error: err.Error()}, err
+	}
+
+	// 调用工具发布
+	resultStr, err := a.createDraftTool.InvokableRun(ctx, string(inputJSON))
+	if err != nil {
+		log.Printf("[Publisher] 发布失败: %v", err)
+		return PublishResult{Success: false, Error: err.Error()}, err
+	}
+
+	// 解析结果
+	var result blog_tools.CreateArticleDraftResult
+	if err := json.Unmarshal([]byte(resultStr), &result); err != nil {
+		return PublishResult{Success: false, Error: err.Error()}, err
+	}
+
+	status := "草稿"
+	if autoPublish {
+		status = "已发布"
+	}
+
+	log.Printf("[Publisher] 发布成功: ArticleID=%d, 状态=%s", result.ArticleID, status)
+
+	return PublishResult{
+		Success:   true,
+		ArticleID: result.ArticleID,
+		URL:       fmt.Sprintf("/articles/%d", result.ArticleID),
+	}, nil
+}

@@ -1,0 +1,145 @@
+package collaborative_writing
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
+)
+
+// SEOOptimization SEO优化结果
+type SEOOptimization struct {
+	OptimizedTitle       string   `json:"optimized_title"`
+	OptimizedSubtitle    string   `json:"optimized_subtitle,omitempty"`
+	MetaDescription      string   `json:"meta_description"`
+	Keywords             []string `json:"keywords"`
+	Tags                 []string `json:"tags"`
+	Slug                 string   `json:"slug"` // URL友好的标识符
+	SocialMediaTitle     string   `json:"social_media_title,omitempty"`
+	SocialMediaDescription string `json:"social_media_description,omitempty"`
+}
+
+// SEOAgent SEO优化Agent
+type SEOAgent struct {
+	model model.BaseChatModel
+}
+
+// NewSEOAgent 创建SEO优化Agent
+func NewSEOAgent(chatModel model.BaseChatModel) *SEOAgent {
+	return &SEOAgent{
+		model: chatModel,
+	}
+}
+
+// Optimize 优化文章的SEO
+func (a *SEOAgent) Optimize(
+	ctx context.Context,
+	originalTitle string,
+	content string,
+	targetKeywords []string,
+) (SEOOptimization, error) {
+	log.Printf("[SEO] 开始优化SEO: %s", originalTitle)
+
+	prompt := a.buildSEOPrompt(originalTitle, content, targetKeywords)
+
+	response, err := a.model.Generate(ctx, []*schema.Message{
+		schema.SystemMessage("你是SEO专家，擅长优化技术文章的搜索引擎排名。只输出JSON格式。"),
+		schema.UserMessage(prompt),
+	})
+	if err != nil {
+		return SEOOptimization{}, fmt.Errorf("SEO optimization: %w", err)
+	}
+
+	// 解析JSON
+	var result SEOOptimization
+	content = extractJSONFromResponse(response.Content)
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		return SEOOptimization{}, fmt.Errorf("parse SEO JSON: %w", err)
+	}
+
+	log.Printf("[SEO] 优化完成")
+	log.Printf("  原标题: %s", originalTitle)
+	log.Printf("  优化后: %s", result.OptimizedTitle)
+	log.Printf("  关键词: %v", result.Keywords)
+	log.Printf("  标签: %v", result.Tags)
+
+	return result, nil
+}
+
+// buildSEOPrompt 构建SEO优化Prompt
+func (a *SEOAgent) buildSEOPrompt(
+	originalTitle string,
+	content string,
+	targetKeywords []string,
+) string {
+	// 截取内容前1000字用于分析
+	contentPreview := content
+	if len([]rune(content)) > 1000 {
+		contentPreview = string([]rune(content)[:1000]) + "..."
+	}
+
+	keywordsHint := ""
+	if len(targetKeywords) > 0 {
+		keywordsHint = fmt.Sprintf("\n目标关键词：%v", targetKeywords)
+	}
+
+	return fmt.Sprintf(`优化技术文章的SEO，提升搜索引擎排名。
+
+【原始标题】
+%s
+
+【文章内容预览】
+%s
+%s
+
+【SEO优化要求】
+
+1. **标题优化**
+   - 保留原意但更吸引人
+   - 包含核心关键词
+   - 长度控制在50-60字符
+   - 避免标题党，保持专业性
+
+2. **Meta描述**
+   - 150-160字符
+   - 概括文章核心价值
+   - 包含关键词
+   - 吸引点击
+
+3. **关键词提取**
+   - 3-5个核心关键词
+   - 基于文章内容
+   - 兼顾搜索量和竞争度
+
+4. **标签生成**
+   - 5-8个标签
+   - 涵盖技术栈、应用场景
+   - 便于分类和关联
+
+5. **URL Slug**
+   - 英文，小写
+   - 用连字符分隔
+   - 简洁明了
+   - 例如：kubernetes-deployment-best-practices
+
+6. **社交媒体优化**（可选）
+   - 标题：更短、更吸引人（40字符内）
+   - 描述：更口语化（100字符内）
+
+输出JSON格式：
+{
+  "optimized_title": "优化后的标题",
+  "optimized_subtitle": "副标题（可选）",
+  "meta_description": "Meta描述",
+  "keywords": ["关键词1", "关键词2", "关键词3"],
+  "tags": ["标签1", "标签2", "标签3", "标签4", "标签5"],
+  "slug": "url-slug",
+  "social_media_title": "社交媒体标题",
+  "social_media_description": "社交媒体描述"
+}
+
+只输出JSON，不要其他内容。`, originalTitle, contentPreview, keywordsHint)
+}

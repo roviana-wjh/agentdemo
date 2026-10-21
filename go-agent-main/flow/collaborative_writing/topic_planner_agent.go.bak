@@ -1,0 +1,134 @@
+package collaborative_writing
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
+)
+
+// TopicSuggestion 主题建议
+type TopicSuggestion struct {
+	Topic       string   `json:"topic"`
+	Reason      string   `json:"reason"`
+	Difficulty  string   `json:"difficulty"`  // beginner/intermediate/advanced
+	Hotness     float64  `json:"hotness"`     // 热度分数 0-100
+	Keywords    []string `json:"keywords"`
+	TargetWords int      `json:"target_words"`
+}
+
+// TopicPlannerAgent 选题规划Agent
+type TopicPlannerAgent struct {
+	model model.BaseChatModel
+}
+
+// NewTopicPlannerAgent 创建选题Agent
+func NewTopicPlannerAgent(chatModel model.BaseChatModel) *TopicPlannerAgent {
+	return &TopicPlannerAgent{
+		model: chatModel,
+	}
+}
+
+// SuggestTopics 建议主题
+func (a *TopicPlannerAgent) SuggestTopics(
+	ctx context.Context,
+	count int,
+	preferences map[string]interface{}, // 用户偏好
+) ([]TopicSuggestion, error) {
+	log.Printf("[TopicPlanner] 开始分析热点，生成%d个主题建议", count)
+
+	// 构建Prompt
+	prompt := a.buildTopicPrompt(count, preferences)
+
+	// 调用LLM
+	response, err := a.model.Generate(ctx, []*schema.Message{
+		schema.SystemMessage("你是技术博客选题专家，擅长发现热点话题和读者需求。只输出JSON格式。"),
+		schema.UserMessage(prompt),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate topics: %w", err)
+	}
+
+	// 解析JSON
+	var result struct {
+		Topics []TopicSuggestion `json:"topics"`
+	}
+
+	content := extractJSONFromResponse(response.Content)
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		return nil, fmt.Errorf("parse topics JSON: %w (content: %s)", err, content)
+	}
+
+	log.Printf("[TopicPlanner] 生成了%d个主题建议", len(result.Topics))
+	for i, topic := range result.Topics {
+		log.Printf("  %d. %s (热度: %.1f, 难度: %s)",
+			i+1, topic.Topic, topic.Hotness, topic.Difficulty)
+	}
+
+	return result.Topics, nil
+}
+
+// buildTopicPrompt 构建选题Prompt
+func (a *TopicPlannerAgent) buildTopicPrompt(count int, preferences map[string]interface{}) string {
+	currentDate := time.Now().Format("2006年1月")
+
+	// 提取偏好
+	categories := ""
+	if cats, ok := preferences["categories"].([]string); ok && len(cats) > 0 {
+		categories = fmt.Sprintf("\n偏好领域：%v", cats)
+	}
+
+	recentPerformance := ""
+	if perf, ok := preferences["recent_performance"].(string); ok && perf != "" {
+		recentPerformance = fmt.Sprintf("\n最近表现：%s", perf)
+	}
+
+	return fmt.Sprintf(`作为技术博客选题专家，分析当前技术热点，推荐%d个值得写作的主题。
+
+【背景信息】
+当前时间：%s
+目标读者：技术开发者、架构师%s%s
+
+【选题原则】
+1. 热点性：与当前技术趋势相关
+2. 实用性：读者能学到实际技能
+3. 差异化：避免过度饱和的话题
+4. 深度适中：既不太浅也不太深
+5. 可写性：有足够的内容可以展开
+
+【热点参考】（可选，你也可以自己判断）
+- 云原生技术（Kubernetes、Serverless）
+- AI/大模型应用开发
+- 前端新技术（React 19、Vue 3.5）
+- 微服务架构演进
+- DevOps最佳实践
+- 数据库新趋势
+- 性能优化实战
+
+输出JSON格式：
+{
+  "topics": [
+    {
+      "topic": "主题名称（清晰、吸引人）",
+      "reason": "为什么推荐这个主题（100字内）",
+      "difficulty": "beginner/intermediate/advanced",
+      "hotness": 85.0,
+      "keywords": ["关键词1", "关键词2", "关键词3"],
+      "target_words": 2000
+    }
+  ]
+}
+
+要求：
+- 推荐%d个不同领域的主题
+- hotness评分要客观（参考搜索热度、社区讨论度）
+- 每个主题要有明确的价值点
+- 难度要多样化（初中高都要有）
+- target_words根据主题复杂度合理设定
+
+只输出JSON，不要其他内容。`, count, currentDate, categories, recentPerformance, count)
+}

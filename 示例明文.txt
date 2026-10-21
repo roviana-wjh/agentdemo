@@ -1,0 +1,1 @@
+Cryptography makes information readable only to intended users. This sample file contains a short English paragraph for frequency analysis. Caesar shifts letters while Playfair works on letter pairs.

@@ -1,0 +1,252 @@
+{
+  "test_cases": [
+    {
+      "category": "关键词匹配 - 工具调用",
+      "cases": [
+        {
+          "id": "T001",
+          "query": "最近有哪些热门文章？",
+          "expected_intent": "blog_tool",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：热门文章"
+        },
+        {
+          "id": "T002",
+          "query": "给我看看排行榜前10的文章",
+          "expected_intent": "blog_tool",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：排行榜"
+        },
+        {
+          "id": "T003",
+          "query": "博客总共有多少篇文章？",
+          "expected_intent": "blog_tool",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：总共、多少篇"
+        },
+        {
+          "id": "T004",
+          "query": "最新发布的文章有哪些",
+          "expected_intent": "blog_tool",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：最新文章"
+        },
+        {
+          "id": "T005",
+          "query": "这篇文章的评论怎么样",
+          "expected_intent": "blog_tool",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：评论"
+        },
+        {
+          "id": "T006",
+          "query": "有哪些热门标签",
+          "expected_intent": "blog_tool",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：标签"
+        },
+        {
+          "id": "T007",
+          "query": "查看博客统计数据",
+          "expected_intent": "blog_tool",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：统计"
+        }
+      ]
+    },
+    {
+      "category": "关键词匹配 - 知识问答",
+      "cases": [
+        {
+          "id": "K001",
+          "query": "什么是RESTful API？",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：什么是"
+        },
+        {
+          "id": "K002",
+          "query": "如何实现JWT认证？",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：如何"
+        },
+        {
+          "id": "K003",
+          "query": "Vue和React的区别是什么",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：区别"
+        },
+        {
+          "id": "K004",
+          "query": "解释一下微服务架构的原理",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：解释、原理"
+        },
+        {
+          "id": "K005",
+          "query": "Redis和Memcached对比一下",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：对比"
+        },
+        {
+          "id": "K006",
+          "query": "为什么要用Docker容器化",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": ">0.9",
+          "reason": "关键词：为什么"
+        }
+      ]
+    },
+    {
+      "category": "LLM分类 - 语义理解",
+      "cases": [
+        {
+          "id": "L001",
+          "query": "给我推荐一些值得看的内容",
+          "expected_intent": "blog_tool",
+          "expected_confidence": "0.8-0.9",
+          "reason": "语义：需要查询数据库推荐"
+        },
+        {
+          "id": "L002",
+          "query": "帮我找找性能优化相关的文章",
+          "expected_intent": "blog_tool",
+          "expected_confidence": "0.8-0.9",
+          "reason": "语义：查找文章需要搜索"
+        },
+        {
+          "id": "L003",
+          "query": "这个技术栈在博客里有介绍吗",
+          "expected_intent": "blog_tool",
+          "expected_confidence": "0.8-0.9",
+          "reason": "语义：查询是否存在"
+        },
+        {
+          "id": "L004",
+          "query": "我想学习微服务，有什么建议",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.8-0.9",
+          "reason": "语义：学习指导，需要知识内容"
+        },
+        {
+          "id": "L005",
+          "query": "GraphQL相比REST有哪些好处",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.8-0.9",
+          "reason": "语义：技术对比，需要知识解释"
+        },
+        {
+          "id": "L006",
+          "query": "能讲讲分布式事务的实现方案吗",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.8-0.9",
+          "reason": "语义：技术讲解，需要知识内容"
+        }
+      ]
+    },
+    {
+      "category": "边界情况 - 模糊查询",
+      "cases": [
+        {
+          "id": "E001",
+          "query": "有什么推荐的吗",
+          "expected_intent": "blog_tool",
+          "expected_confidence": "0.3-0.8",
+          "reason": "模糊，推荐通常是查数据"
+        },
+        {
+          "id": "E002",
+          "query": "告诉我更多",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.3",
+          "reason": "极度模糊，fallback到RAG"
+        },
+        {
+          "id": "E003",
+          "query": "这个怎么样",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.3",
+          "reason": "极度模糊，fallback到RAG"
+        },
+        {
+          "id": "E004",
+          "query": "帮我看看",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.3",
+          "reason": "模糊，fallback到RAG"
+        }
+      ]
+    },
+    {
+      "category": "混合场景",
+      "cases": [
+        {
+          "id": "M001",
+          "query": "最热门的Vue文章有哪些，以及Vue的核心原理是什么",
+          "expected_intent": "blog_tool",
+          "expected_confidence": "0.8-0.9",
+          "reason": "复合问题，第一部分是工具调用"
+        },
+        {
+          "id": "M002",
+          "query": "你们博客有讲Kubernetes吗，能介绍一下它的架构吗",
+          "expected_intent": "blog_tool",
+          "expected_confidence": "0.8-0.9",
+          "reason": "复合问题，第一部分是查询存在性"
+        },
+        {
+          "id": "M003",
+          "query": "最近有React相关的文章吗？我想学习Hook的原理",
+          "expected_intent": "blog_tool",
+          "expected_confidence": "0.8-0.9",
+          "reason": "复合问题，第一部分是查询"
+        }
+      ]
+    },
+    {
+      "category": "上下文依赖",
+      "cases": [
+        {
+          "id": "C001",
+          "query": "它是怎么工作的？",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.3",
+          "reason": "依赖上下文，关键词倾向知识问答"
+        },
+        {
+          "id": "C002",
+          "query": "还有其他的吗？",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.3",
+          "reason": "依赖上下文，fallback"
+        },
+        {
+          "id": "C003",
+          "query": "再详细一点",
+          "expected_intent": "knowledge_rag",
+          "expected_confidence": "0.3",
+          "reason": "依赖上下文，fallback"
+        }
+      ]
+    }
+  ],
+  "statistics": {
+    "total_cases": 33,
+    "by_category": {
+      "关键词匹配 - 工具调用": 7,
+      "关键词匹配 - 知识问答": 6,
+      "LLM分类 - 语义理解": 6,
+      "边界情况 - 模糊查询": 4,
+      "混合场景": 3,
+      "上下文依赖": 3
+    },
+    "by_intent": {
+      "blog_tool": 14,
+      "knowledge_rag": 19
+    }
+  }
+}
